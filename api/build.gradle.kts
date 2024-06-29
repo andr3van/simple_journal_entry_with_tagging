@@ -32,24 +32,32 @@ repositories {
 val graphqlKotlinVersion = "7.1.1"
 
 dependencies {
+    // Spring
     implementation("org.springframework.boot:spring-boot-starter-jooq:3.3.0")
-    implementation("com.expediagroup", "graphql-kotlin-hooks-provider", graphqlKotlinVersion)
-    implementation("org.jooq:jooq-codegen:3.19.10")
+    developmentOnly("org.springframework.boot:spring-boot-devtools:3.3.0")
+
+    // Kotlin
     implementation("org.jetbrains.kotlin:kotlin-reflect")
+
+    // GraphQL
+    implementation("com.expediagroup", "graphql-kotlin-hooks-provider", graphqlKotlinVersion)
     implementation("com.expediagroup", "graphql-kotlin-spring-server", graphqlKotlinVersion)
     implementation("com.expediagroup", "graphql-kotlin-schema-generator", graphqlKotlinVersion)
     implementation("com.graphql-java:graphql-java-extended-scalars:17.0")
+
+    // DB
+    runtimeOnly("com.mysql:mysql-connector-j:8.4.0")
     implementation("org.flywaydb:flyway-core")
     implementation("org.flywaydb:flyway-mysql")
+    implementation("org.jooq:jooq-codegen:3.19.10")
     jooqCodegen("com.mysql:mysql-connector-j:8.4.0")
     runtimeOnly("jakarta.validation:jakarta.validation-api:3.1.0")
-    developmentOnly("org.springframework.boot:spring-boot-devtools:3.3.0")
-    runtimeOnly("com.mysql:mysql-connector-j:8.4.0")
+
+    // Test
     testImplementation("org.springframework.boot:spring-boot-starter-test:3.3.0")
-    testImplementation("io.kotest:kotest-runner-junit5:5.1.0")
-    testImplementation("io.kotest.extensions:kotest-extensions-spring:1.1.0")
-    testImplementation("com.ninja-squad:springmockk:3.1.0")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.6.0")
+    testImplementation("io.kotest:kotest-runner-junit5:5.9.1")
+    testImplementation("io.kotest.extensions:kotest-extensions-spring:1.3.0")
+    testImplementation("com.ninja-squad:springmockk:4.0.2")
 }
 
 object DB {
@@ -101,7 +109,6 @@ ktlint {
     filter {
         exclude { it.file.path.contains("generated") }
     }
-    disabledRules.add("import-ordering")
 }
 
 tasks.withType<KotlinCompile> {
