@@ -10,6 +10,9 @@ spring:
     url: jdbc:mysql://127.0.0.1:3306/simple_journal_entry_db?autoReconnect=true&useSSL=false&allowPublicKeyRetrieval=true
     user: mysqluser
     password: password
+  graphql:
+    graphiql:
+      enabled: true
 logging:
   level:
     sql: "debug"
