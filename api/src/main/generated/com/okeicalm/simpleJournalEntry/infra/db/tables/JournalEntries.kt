@@ -10,18 +10,28 @@ import com.okeicalm.simpleJournalEntry.infra.db.indexes.JOURNAL_ENTRIES_FK_JOURN
 import com.okeicalm.simpleJournalEntry.infra.db.keys.JOURNAL_ENTRIES_IBFK_1
 import com.okeicalm.simpleJournalEntry.infra.db.keys.JOURNAL_ENTRIES_IBFK_2
 import com.okeicalm.simpleJournalEntry.infra.db.keys.KEY_JOURNAL_ENTRIES_PRIMARY
+import com.okeicalm.simpleJournalEntry.infra.db.tables.Accounts.AccountsPath
+import com.okeicalm.simpleJournalEntry.infra.db.tables.Journals.JournalsPath
 import com.okeicalm.simpleJournalEntry.infra.db.tables.records.JournalEntriesRecord
 
+import kotlin.collections.Collection
 import kotlin.collections.List
 
+import org.jooq.Condition
 import org.jooq.Field
 import org.jooq.ForeignKey
 import org.jooq.Identity
 import org.jooq.Index
+import org.jooq.InverseForeignKey
 import org.jooq.Name
+import org.jooq.Path
+import org.jooq.PlainSQL
+import org.jooq.QueryPart
 import org.jooq.Record
-import org.jooq.Row5
+import org.jooq.SQL
 import org.jooq.Schema
+import org.jooq.Select
+import org.jooq.Stringly
 import org.jooq.Table
 import org.jooq.TableField
 import org.jooq.TableOptions
@@ -38,19 +48,23 @@ import org.jooq.impl.TableImpl
 @Suppress("UNCHECKED_CAST")
 open class JournalEntries(
     alias: Name,
-    child: Table<out Record>?,
-    path: ForeignKey<out Record, JournalEntriesRecord>?,
+    path: Table<out Record>?,
+    childPath: ForeignKey<out Record, JournalEntriesRecord>?,
+    parentPath: InverseForeignKey<out Record, JournalEntriesRecord>?,
     aliased: Table<JournalEntriesRecord>?,
-    parameters: Array<Field<*>?>?
+    parameters: Array<Field<*>?>?,
+    where: Condition?
 ): TableImpl<JournalEntriesRecord>(
     alias,
     SimpleJournalEntryDb.SIMPLE_JOURNAL_ENTRY_DB,
-    child,
     path,
+    childPath,
+    parentPath,
     aliased,
     parameters,
     DSL.comment(""),
-    TableOptions.table()
+    TableOptions.table(),
+    where,
 ) {
     companion object {
 
@@ -93,8 +107,9 @@ open class JournalEntries(
      */
     val VALUE: TableField<JournalEntriesRecord, Int?> = createField(DSL.name("value"), SQLDataType.INTEGER.nullable(false), this, "")
 
-    private constructor(alias: Name, aliased: Table<JournalEntriesRecord>?): this(alias, null, null, aliased, null)
-    private constructor(alias: Name, aliased: Table<JournalEntriesRecord>?, parameters: Array<Field<*>?>?): this(alias, null, null, aliased, parameters)
+    private constructor(alias: Name, aliased: Table<JournalEntriesRecord>?): this(alias, null, null, null, aliased, null, null)
+    private constructor(alias: Name, aliased: Table<JournalEntriesRecord>?, parameters: Array<Field<*>?>?): this(alias, null, null, null, aliased, parameters, null)
+    private constructor(alias: Name, aliased: Table<JournalEntriesRecord>?, where: Condition?): this(alias, null, null, null, aliased, null, where)
 
     /**
      * Create an aliased <code>simple_journal_entry_db.journal_entries</code>
@@ -114,29 +129,58 @@ open class JournalEntries(
      */
     constructor(): this(DSL.name("journal_entries"), null)
 
-    constructor(child: Table<out Record>, key: ForeignKey<out Record, JournalEntriesRecord>): this(Internal.createPathAlias(child, key), child, key, JOURNAL_ENTRIES, null)
+    constructor(path: Table<out Record>, childPath: ForeignKey<out Record, JournalEntriesRecord>?, parentPath: InverseForeignKey<out Record, JournalEntriesRecord>?): this(Internal.createPathAlias(path, childPath, parentPath), path, childPath, parentPath, JOURNAL_ENTRIES, null, null)
+
+    /**
+     * A subtype implementing {@link Path} for simplified path-based joins.
+     */
+    open class JournalEntriesPath : JournalEntries, Path<JournalEntriesRecord> {
+        constructor(path: Table<out Record>, childPath: ForeignKey<out Record, JournalEntriesRecord>?, parentPath: InverseForeignKey<out Record, JournalEntriesRecord>?): super(path, childPath, parentPath)
+        private constructor(alias: Name, aliased: Table<JournalEntriesRecord>): super(alias, aliased)
+        override fun `as`(alias: String): JournalEntriesPath = JournalEntriesPath(DSL.name(alias), this)
+        override fun `as`(alias: Name): JournalEntriesPath = JournalEntriesPath(alias, this)
+        override fun `as`(alias: Table<*>): JournalEntriesPath = JournalEntriesPath(alias.qualifiedName, this)
+    }
     override fun getSchema(): Schema? = if (aliased()) null else SimpleJournalEntryDb.SIMPLE_JOURNAL_ENTRY_DB
     override fun getIndexes(): List<Index> = listOf(JOURNAL_ENTRIES_FK_ACCOUNT, JOURNAL_ENTRIES_FK_JOURNAL)
     override fun getIdentity(): Identity<JournalEntriesRecord, Long?> = super.getIdentity() as Identity<JournalEntriesRecord, Long?>
     override fun getPrimaryKey(): UniqueKey<JournalEntriesRecord> = KEY_JOURNAL_ENTRIES_PRIMARY
     override fun getReferences(): List<ForeignKey<JournalEntriesRecord, *>> = listOf(JOURNAL_ENTRIES_IBFK_1, JOURNAL_ENTRIES_IBFK_2)
 
-    private lateinit var _journals: Journals
-    private lateinit var _accounts: Accounts
-    fun journals(): Journals {
+    private lateinit var _journals: JournalsPath
+
+    /**
+     * Get the implicit join path to the
+     * <code>simple_journal_entry_db.journals</code> table.
+     */
+    fun journals(): JournalsPath {
         if (!this::_journals.isInitialized)
-            _journals = Journals(this, JOURNAL_ENTRIES_IBFK_1)
+            _journals = JournalsPath(this, JOURNAL_ENTRIES_IBFK_1, null)
 
         return _journals;
     }
-    fun accounts(): Accounts {
+
+    val journals: JournalsPath
+        get(): JournalsPath = journals()
+
+    private lateinit var _accounts: AccountsPath
+
+    /**
+     * Get the implicit join path to the
+     * <code>simple_journal_entry_db.accounts</code> table.
+     */
+    fun accounts(): AccountsPath {
         if (!this::_accounts.isInitialized)
-            _accounts = Accounts(this, JOURNAL_ENTRIES_IBFK_2)
+            _accounts = AccountsPath(this, JOURNAL_ENTRIES_IBFK_2, null)
 
         return _accounts;
     }
+
+    val accounts: AccountsPath
+        get(): AccountsPath = accounts()
     override fun `as`(alias: String): JournalEntries = JournalEntries(DSL.name(alias), this)
     override fun `as`(alias: Name): JournalEntries = JournalEntries(alias, this)
+    override fun `as`(alias: Table<*>): JournalEntries = JournalEntries(alias.qualifiedName, this)
 
     /**
      * Rename this table
@@ -148,8 +192,58 @@ open class JournalEntries(
      */
     override fun rename(name: Name): JournalEntries = JournalEntries(name, null)
 
-    // -------------------------------------------------------------------------
-    // Row5 type methods
-    // -------------------------------------------------------------------------
-    override fun fieldsRow(): Row5<Long?, Long?, Byte?, Long?, Int?> = super.fieldsRow() as Row5<Long?, Long?, Byte?, Long?, Int?>
+    /**
+     * Rename this table
+     */
+    override fun rename(name: Table<*>): JournalEntries = JournalEntries(name.qualifiedName, null)
+
+    /**
+     * Create an inline derived table from this table
+     */
+    override fun where(condition: Condition?): JournalEntries = JournalEntries(qualifiedName, if (aliased()) this else null, condition)
+
+    /**
+     * Create an inline derived table from this table
+     */
+    override fun where(conditions: Collection<Condition>): JournalEntries = where(DSL.and(conditions))
+
+    /**
+     * Create an inline derived table from this table
+     */
+    override fun where(vararg conditions: Condition?): JournalEntries = where(DSL.and(*conditions))
+
+    /**
+     * Create an inline derived table from this table
+     */
+    override fun where(condition: Field<Boolean?>?): JournalEntries = where(DSL.condition(condition))
+
+    /**
+     * Create an inline derived table from this table
+     */
+    @PlainSQL override fun where(condition: SQL): JournalEntries = where(DSL.condition(condition))
+
+    /**
+     * Create an inline derived table from this table
+     */
+    @PlainSQL override fun where(@Stringly.SQL condition: String): JournalEntries = where(DSL.condition(condition))
+
+    /**
+     * Create an inline derived table from this table
+     */
+    @PlainSQL override fun where(@Stringly.SQL condition: String, vararg binds: Any?): JournalEntries = where(DSL.condition(condition, *binds))
+
+    /**
+     * Create an inline derived table from this table
+     */
+    @PlainSQL override fun where(@Stringly.SQL condition: String, vararg parts: QueryPart): JournalEntries = where(DSL.condition(condition, *parts))
+
+    /**
+     * Create an inline derived table from this table
+     */
+    override fun whereExists(select: Select<*>): JournalEntries = where(DSL.exists(select))
+
+    /**
+     * Create an inline derived table from this table
+     */
+    override fun whereNotExists(select: Select<*>): JournalEntries = where(DSL.notExists(select))
 }
