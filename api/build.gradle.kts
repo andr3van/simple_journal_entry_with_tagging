@@ -1,5 +1,6 @@
 import com.expediagroup.graphql.plugin.gradle.graphql
 import org.gradle.kotlin.dsl.flyway
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
@@ -9,14 +10,14 @@ plugins {
     id("nu.studer.jooq") version "6.0.1"
     id("org.flywaydb.flyway") version "8.0.1"
     id("org.jlleitschuh.gradle.ktlint") version "10.2.1"
-    kotlin("jvm") version "1.6.0"
-    kotlin("plugin.spring") version "1.6.0"
-    kotlin("kapt") version "1.6.0"
+    kotlin("jvm") version "2.0.0"
+    kotlin("plugin.spring") version "2.0.0"
+    kotlin("kapt") version "2.0.0"
 }
 
 group = "com.okeicalm"
 version = "0.0.1-SNAPSHOT"
-java.sourceCompatibility = JavaVersion.VERSION_17
+java.sourceCompatibility = JavaVersion.VERSION_21
 
 configurations {
     compileOnly {
@@ -107,9 +108,9 @@ ktlint {
 }
 
 tasks.withType<KotlinCompile> {
-    kotlinOptions {
+    compilerOptions {
         freeCompilerArgs = listOf("-Xjsr305=strict")
-        jvmTarget = "17"
+        jvmTarget.set(JvmTarget.JVM_21)
     }
 }
 
