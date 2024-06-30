@@ -12,17 +12,14 @@ plugins {
 
     kotlin("jvm") version "2.0.0"
     kotlin("plugin.spring") version "2.0.0"
-    kotlin("kapt") version "2.0.0"
 }
 
 group = "com.okeicalm"
 version = "0.0.1-SNAPSHOT"
-java.sourceCompatibility = JavaVersion.VERSION_21
 
-configurations {
-    compileOnly {
-        extendsFrom(configurations.annotationProcessor.get())
-    }
+java {
+    toolchain { languageVersion.set(JavaLanguageVersion.of(21)) }
+    sourceCompatibility = JavaVersion.VERSION_21
 }
 
 repositories {
