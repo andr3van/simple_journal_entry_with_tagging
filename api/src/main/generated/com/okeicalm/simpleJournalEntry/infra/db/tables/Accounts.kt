@@ -6,19 +6,29 @@ package com.okeicalm.simpleJournalEntry.infra.db.tables
 
 import com.okeicalm.simpleJournalEntry.infra.db.SimpleJournalEntryDb
 import com.okeicalm.simpleJournalEntry.infra.db.enums.AccountsElementType
+import com.okeicalm.simpleJournalEntry.infra.db.keys.JOURNAL_ENTRIES_IBFK_2
 import com.okeicalm.simpleJournalEntry.infra.db.keys.KEY_ACCOUNTS_CODE
 import com.okeicalm.simpleJournalEntry.infra.db.keys.KEY_ACCOUNTS_PRIMARY
+import com.okeicalm.simpleJournalEntry.infra.db.tables.JournalEntries.JournalEntriesPath
 import com.okeicalm.simpleJournalEntry.infra.db.tables.records.AccountsRecord
 
+import kotlin.collections.Collection
 import kotlin.collections.List
 
+import org.jooq.Condition
 import org.jooq.Field
 import org.jooq.ForeignKey
 import org.jooq.Identity
+import org.jooq.InverseForeignKey
 import org.jooq.Name
+import org.jooq.Path
+import org.jooq.PlainSQL
+import org.jooq.QueryPart
 import org.jooq.Record
-import org.jooq.Row4
+import org.jooq.SQL
 import org.jooq.Schema
+import org.jooq.Select
+import org.jooq.Stringly
 import org.jooq.Table
 import org.jooq.TableField
 import org.jooq.TableOptions
@@ -35,19 +45,23 @@ import org.jooq.impl.TableImpl
 @Suppress("UNCHECKED_CAST")
 open class Accounts(
     alias: Name,
-    child: Table<out Record>?,
-    path: ForeignKey<out Record, AccountsRecord>?,
+    path: Table<out Record>?,
+    childPath: ForeignKey<out Record, AccountsRecord>?,
+    parentPath: InverseForeignKey<out Record, AccountsRecord>?,
     aliased: Table<AccountsRecord>?,
-    parameters: Array<Field<*>?>?
+    parameters: Array<Field<*>?>?,
+    where: Condition?
 ): TableImpl<AccountsRecord>(
     alias,
     SimpleJournalEntryDb.SIMPLE_JOURNAL_ENTRY_DB,
-    child,
     path,
+    childPath,
+    parentPath,
     aliased,
     parameters,
     DSL.comment(""),
-    TableOptions.table()
+    TableOptions.table(),
+    where,
 ) {
     companion object {
 
@@ -81,10 +95,11 @@ open class Accounts(
     /**
      * The column <code>simple_journal_entry_db.accounts.element_type</code>.
      */
-    val ELEMENT_TYPE: TableField<AccountsRecord, AccountsElementType?> = createField(DSL.name("element_type"), SQLDataType.VARCHAR(11).nullable(false).asEnumDataType(com.okeicalm.simpleJournalEntry.infra.db.enums.AccountsElementType::class.java), this, "")
+    val ELEMENT_TYPE: TableField<AccountsRecord, AccountsElementType?> = createField(DSL.name("element_type"), SQLDataType.VARCHAR(11).nullable(false).asEnumDataType(AccountsElementType::class.java), this, "")
 
-    private constructor(alias: Name, aliased: Table<AccountsRecord>?): this(alias, null, null, aliased, null)
-    private constructor(alias: Name, aliased: Table<AccountsRecord>?, parameters: Array<Field<*>?>?): this(alias, null, null, aliased, parameters)
+    private constructor(alias: Name, aliased: Table<AccountsRecord>?): this(alias, null, null, null, aliased, null, null)
+    private constructor(alias: Name, aliased: Table<AccountsRecord>?, parameters: Array<Field<*>?>?): this(alias, null, null, null, aliased, parameters, null)
+    private constructor(alias: Name, aliased: Table<AccountsRecord>?, where: Condition?): this(alias, null, null, null, aliased, null, where)
 
     /**
      * Create an aliased <code>simple_journal_entry_db.accounts</code> table
@@ -103,13 +118,41 @@ open class Accounts(
      */
     constructor(): this(DSL.name("accounts"), null)
 
-    constructor(child: Table<out Record>, key: ForeignKey<out Record, AccountsRecord>): this(Internal.createPathAlias(child, key), child, key, ACCOUNTS, null)
+    constructor(path: Table<out Record>, childPath: ForeignKey<out Record, AccountsRecord>?, parentPath: InverseForeignKey<out Record, AccountsRecord>?): this(Internal.createPathAlias(path, childPath, parentPath), path, childPath, parentPath, ACCOUNTS, null, null)
+
+    /**
+     * A subtype implementing {@link Path} for simplified path-based joins.
+     */
+    open class AccountsPath : Accounts, Path<AccountsRecord> {
+        constructor(path: Table<out Record>, childPath: ForeignKey<out Record, AccountsRecord>?, parentPath: InverseForeignKey<out Record, AccountsRecord>?): super(path, childPath, parentPath)
+        private constructor(alias: Name, aliased: Table<AccountsRecord>): super(alias, aliased)
+        override fun `as`(alias: String): AccountsPath = AccountsPath(DSL.name(alias), this)
+        override fun `as`(alias: Name): AccountsPath = AccountsPath(alias, this)
+        override fun `as`(alias: Table<*>): AccountsPath = AccountsPath(alias.qualifiedName, this)
+    }
     override fun getSchema(): Schema? = if (aliased()) null else SimpleJournalEntryDb.SIMPLE_JOURNAL_ENTRY_DB
     override fun getIdentity(): Identity<AccountsRecord, Long?> = super.getIdentity() as Identity<AccountsRecord, Long?>
     override fun getPrimaryKey(): UniqueKey<AccountsRecord> = KEY_ACCOUNTS_PRIMARY
     override fun getUniqueKeys(): List<UniqueKey<AccountsRecord>> = listOf(KEY_ACCOUNTS_CODE)
+
+    private lateinit var _journalEntries: JournalEntriesPath
+
+    /**
+     * Get the implicit to-many join path to the
+     * <code>simple_journal_entry_db.journal_entries</code> table
+     */
+    fun journalEntries(): JournalEntriesPath {
+        if (!this::_journalEntries.isInitialized)
+            _journalEntries = JournalEntriesPath(this, null, JOURNAL_ENTRIES_IBFK_2.inverseKey)
+
+        return _journalEntries;
+    }
+
+    val journalEntries: JournalEntriesPath
+        get(): JournalEntriesPath = journalEntries()
     override fun `as`(alias: String): Accounts = Accounts(DSL.name(alias), this)
     override fun `as`(alias: Name): Accounts = Accounts(alias, this)
+    override fun `as`(alias: Table<*>): Accounts = Accounts(alias.qualifiedName, this)
 
     /**
      * Rename this table
@@ -121,8 +164,58 @@ open class Accounts(
      */
     override fun rename(name: Name): Accounts = Accounts(name, null)
 
-    // -------------------------------------------------------------------------
-    // Row4 type methods
-    // -------------------------------------------------------------------------
-    override fun fieldsRow(): Row4<Long?, String?, String?, AccountsElementType?> = super.fieldsRow() as Row4<Long?, String?, String?, AccountsElementType?>
+    /**
+     * Rename this table
+     */
+    override fun rename(name: Table<*>): Accounts = Accounts(name.qualifiedName, null)
+
+    /**
+     * Create an inline derived table from this table
+     */
+    override fun where(condition: Condition?): Accounts = Accounts(qualifiedName, if (aliased()) this else null, condition)
+
+    /**
+     * Create an inline derived table from this table
+     */
+    override fun where(conditions: Collection<Condition>): Accounts = where(DSL.and(conditions))
+
+    /**
+     * Create an inline derived table from this table
+     */
+    override fun where(vararg conditions: Condition?): Accounts = where(DSL.and(*conditions))
+
+    /**
+     * Create an inline derived table from this table
+     */
+    override fun where(condition: Field<Boolean?>?): Accounts = where(DSL.condition(condition))
+
+    /**
+     * Create an inline derived table from this table
+     */
+    @PlainSQL override fun where(condition: SQL): Accounts = where(DSL.condition(condition))
+
+    /**
+     * Create an inline derived table from this table
+     */
+    @PlainSQL override fun where(@Stringly.SQL condition: String): Accounts = where(DSL.condition(condition))
+
+    /**
+     * Create an inline derived table from this table
+     */
+    @PlainSQL override fun where(@Stringly.SQL condition: String, vararg binds: Any?): Accounts = where(DSL.condition(condition, *binds))
+
+    /**
+     * Create an inline derived table from this table
+     */
+    @PlainSQL override fun where(@Stringly.SQL condition: String, vararg parts: QueryPart): Accounts = where(DSL.condition(condition, *parts))
+
+    /**
+     * Create an inline derived table from this table
+     */
+    override fun whereExists(select: Select<*>): Accounts = where(DSL.exists(select))
+
+    /**
+     * Create an inline derived table from this table
+     */
+    override fun whereNotExists(select: Select<*>): Accounts = where(DSL.notExists(select))
 }

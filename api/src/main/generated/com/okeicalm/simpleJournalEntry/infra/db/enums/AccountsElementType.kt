@@ -22,6 +22,6 @@ enum class AccountsElementType(@get:JvmName("literal") public val literal: Strin
     NET_INCOME("NET_INCOME");
     override fun getCatalog(): Catalog? = null
     override fun getSchema(): Schema? = null
-    override fun getName(): String = "accounts_element_type"
+    override fun getName(): String? = null
     override fun getLiteral(): String = literal
 }
