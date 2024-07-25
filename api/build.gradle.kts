@@ -2,6 +2,12 @@ import com.expediagroup.graphql.plugin.gradle.graphql
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
+buildscript {
+    dependencies {
+        classpath("org.flywaydb:flyway-mysql:10.16.0")
+    }
+}
+
 plugins {
     id("org.springframework.boot") version "3.3.1"
     id("io.spring.dependency-management") version "1.1.5"
