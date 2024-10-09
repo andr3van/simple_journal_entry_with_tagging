@@ -6,12 +6,14 @@ data class JournalEntry(
     val side: Byte,
     val accountId: Long,
     val value: Int,
+    val tags: List<JournalEntryTag>,
 ) {
     companion object {
         fun create(
             side: Byte,
             accountId: Long,
             value: Int,
+            tags: List<JournalEntryTag>,
         ): JournalEntry {
             return JournalEntry(
                 id = 0,
@@ -19,6 +21,7 @@ data class JournalEntry(
                 side = side,
                 accountId = accountId,
                 value = value,
+                tags = tags,
             )
         }
     }
