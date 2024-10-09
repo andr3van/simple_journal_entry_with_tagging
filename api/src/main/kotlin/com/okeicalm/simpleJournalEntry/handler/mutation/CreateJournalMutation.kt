@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component
 import java.time.LocalDate
 
 data class CreateJournalInput(val incurredOn: Int, val createJournalEntryInput: List<CreateJournalEntryInput>)
-data class CreateJournalEntryInput(val side: Int, val accountID: ID, val value: Int)
+data class CreateJournalEntryInput(val side: Int, val accountID: ID, val value: Int, val tags: List<String>? = null)
 
 @Component
 class CreateJournalMutation(private val journalCreateUseCase: JournalCreateUseCase) : Mutation {
@@ -20,7 +20,8 @@ class CreateJournalMutation(private val journalCreateUseCase: JournalCreateUseCa
             JournalEntryInputData(
                 side = it.side.toByte(),
                 accountID = it.accountID.toString().toLong(),
-                value = it.value
+                value = it.value,
+                tags = it.tags,
             )
         }
         val inputData = JournalCreateUseCaseInput(
