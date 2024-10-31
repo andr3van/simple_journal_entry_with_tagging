@@ -77,8 +77,8 @@ class JournalRepositoryImpl(private val dslContext: DSLContext) : JournalReposit
         val createdJournalEntries = bulkInsertJournalEntry(journalEntryWithJournalId)
 
         // For JournalEntryTags
-        val journalEntryTags = createdJournalEntries.flatMap { it ->
-            it.tags.map { it.copy(journalEntryId = it.id) }
+        val journalEntryTags = createdJournalEntries.flatMap { journalEntry ->
+            journalEntry.tags.map { tag -> tag.copy(journalEntryId = journalEntry.id) }
         }
         bulkInsertJournalEntryTags(journalEntryTags)
 
