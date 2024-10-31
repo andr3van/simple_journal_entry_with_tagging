@@ -7,7 +7,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
 
-data class JournalEntryInputData(val side: Byte, val accountID: Long, val value: Int)
+data class JournalEntryInputData(val side: Byte, val accountID: Long, val value: Int, val tags: List<String>? = null)
 data class JournalCreateUseCaseInput(val incurredOn: LocalDate, val journalEntryInputDatum: List<JournalEntryInputData>)
 data class JournalCreateUseCaseOutput(val journal: Journal)
 
@@ -26,6 +26,7 @@ class JournalCreateUseCaseImpl(
                 accountId = it.accountID,
                 side = it.side,
                 value = it.value,
+                tags = it.tags,
             )
         }
         val journal = Journal.create(

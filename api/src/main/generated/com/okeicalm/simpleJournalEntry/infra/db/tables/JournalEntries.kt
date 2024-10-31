@@ -9,8 +9,10 @@ import com.okeicalm.simpleJournalEntry.infra.db.indexes.JOURNAL_ENTRIES_FK_ACCOU
 import com.okeicalm.simpleJournalEntry.infra.db.indexes.JOURNAL_ENTRIES_FK_JOURNAL
 import com.okeicalm.simpleJournalEntry.infra.db.keys.JOURNAL_ENTRIES_IBFK_1
 import com.okeicalm.simpleJournalEntry.infra.db.keys.JOURNAL_ENTRIES_IBFK_2
+import com.okeicalm.simpleJournalEntry.infra.db.keys.JOURNAL_ENTRY_TAGS_IBFK_1
 import com.okeicalm.simpleJournalEntry.infra.db.keys.KEY_JOURNAL_ENTRIES_PRIMARY
 import com.okeicalm.simpleJournalEntry.infra.db.tables.Accounts.AccountsPath
+import com.okeicalm.simpleJournalEntry.infra.db.tables.JournalEntryTags.JournalEntryTagsPath
 import com.okeicalm.simpleJournalEntry.infra.db.tables.Journals.JournalsPath
 import com.okeicalm.simpleJournalEntry.infra.db.tables.records.JournalEntriesRecord
 
@@ -178,6 +180,22 @@ open class JournalEntries(
 
     val accounts: AccountsPath
         get(): AccountsPath = accounts()
+
+    private lateinit var _journalEntryTags: JournalEntryTagsPath
+
+    /**
+     * Get the implicit to-many join path to the
+     * <code>simple_journal_entry_db.journal_entry_tags</code> table
+     */
+    fun journalEntryTags(): JournalEntryTagsPath {
+        if (!this::_journalEntryTags.isInitialized)
+            _journalEntryTags = JournalEntryTagsPath(this, null, JOURNAL_ENTRY_TAGS_IBFK_1.inverseKey)
+
+        return _journalEntryTags;
+    }
+
+    val journalEntryTags: JournalEntryTagsPath
+        get(): JournalEntryTagsPath = journalEntryTags()
     override fun `as`(alias: String): JournalEntries = JournalEntries(DSL.name(alias), this)
     override fun `as`(alias: Name): JournalEntries = JournalEntries(alias, this)
     override fun `as`(alias: Table<*>): JournalEntries = JournalEntries(alias.qualifiedName, this)

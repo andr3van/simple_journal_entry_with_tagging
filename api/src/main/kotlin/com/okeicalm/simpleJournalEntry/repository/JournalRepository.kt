@@ -2,8 +2,10 @@ package com.okeicalm.simpleJournalEntry.repository
 
 import com.okeicalm.simpleJournalEntry.entity.Journal
 import com.okeicalm.simpleJournalEntry.entity.JournalEntry
+import com.okeicalm.simpleJournalEntry.entity.JournalEntryTag
 import com.okeicalm.simpleJournalEntry.infra.db.tables.references.JOURNALS
 import com.okeicalm.simpleJournalEntry.infra.db.tables.references.JOURNAL_ENTRIES
+import com.okeicalm.simpleJournalEntry.infra.db.tables.references.JOURNAL_ENTRY_TAGS
 import org.jooq.DSLContext
 import org.springframework.stereotype.Repository
 
@@ -72,26 +74,18 @@ class JournalRepositoryImpl(private val dslContext: DSLContext) : JournalReposit
             it.copy(journalId = journalId)
         }
         // For JournalEntry
-        bulkInsertJournalEntry(journalEntryWithJournalId)
+        val createdJournalEntries = bulkInsertJournalEntry(journalEntryWithJournalId)
 
-        val createdJournalEntries = dslContext
-            .select()
-            .from(JOURNAL_ENTRIES)
-            .where(JOURNAL_ENTRIES.JOURNAL_ID.eq(journalId))
-            .fetch {
-                JournalEntry(
-                    id = it.getValue(JOURNAL_ENTRIES.ID)!!,
-                    journalId = it.getValue(JOURNAL_ENTRIES.JOURNAL_ID)!!,
-                    accountId = it.getValue(JOURNAL_ENTRIES.ACCOUNT_ID)!!,
-                    side = it.getValue(JOURNAL_ENTRIES.SIDE)!!,
-                    value = it.getValue(JOURNAL_ENTRIES.VALUE)!!,
-                )
-            }
+        // For JournalEntryTags
+        val journalEntryTags = createdJournalEntries.flatMap { journalEntry ->
+            journalEntry.tags.map { tag -> tag.copy(journalEntryId = journalEntry.id) }
+        }
+        bulkInsertJournalEntryTags(journalEntryTags)
 
         return journal.copy(id = journalId, journalEntries = createdJournalEntries)
     }
 
-    private fun bulkInsertJournalEntry(journalEntries: List<JournalEntry>) {
+    private fun bulkInsertJournalEntry(journalEntries: List<JournalEntry>): List<JournalEntry> {
         val queries = journalEntries.map {
             dslContext.insertInto(
                 JOURNAL_ENTRIES,
@@ -101,6 +95,22 @@ class JournalRepositoryImpl(private val dslContext: DSLContext) : JournalReposit
                 JOURNAL_ENTRIES.VALUE
             )
                 .values(it.journalId, it.side, it.accountId, it.value)
+                .returningResult(JOURNAL_ENTRIES.ID)
+                .fetchOne()
+        }
+        return queries.mapIndexed { index, record ->
+            journalEntries[index].copy(id = record!!.getValue(JOURNAL_ENTRIES.ID)!!)
+        }
+    }
+
+    private fun bulkInsertJournalEntryTags(journalEntryTags: List<JournalEntryTag>) {
+        val queries = journalEntryTags.map {
+            dslContext.insertInto(
+                JOURNAL_ENTRY_TAGS,
+                JOURNAL_ENTRY_TAGS.JOURNAL_ENTRY_ID,
+                JOURNAL_ENTRY_TAGS.TAG_NAME
+            )
+                .values(it.journalEntryId, it.tagName)
         }
         dslContext.batch(queries).execute()
     }
