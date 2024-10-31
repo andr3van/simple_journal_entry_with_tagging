@@ -105,6 +105,15 @@ Open your browser and go to http://localhost:8080/graphiql
   }
   ```
 
+- ### Find all journals entries by tag name
+  ```
+  query {
+    findJournalEntriesByTagName(tagName: "Foo Tag") {
+        value
+    }
+  }
+  ```
+
 - ### Update an account
   ```
   mutation {
